@@ -10,12 +10,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔥 MongoDB Atlas connect
+// ✅ Static folder (VERY IMPORTANT)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ✅ MongoDB Connect
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected 🚀"))
   .catch((err) => console.log(err));
 
-// Schema
+// ✅ Schema
 const userSchema = new mongoose.Schema({
   name: String,
   email: String,
@@ -24,49 +27,52 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
-// Image storage config
+// ✅ Multer Storage
 const storage = multer.diskStorage({
-  destination: "./uploads",
-  filename: (req, file, cb) => {
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
 
 const upload = multer({ storage });
 
-// ✅ API route (DB save added)
+// ✅ Upload API
 app.post("/upload", upload.single("image"), async (req, res) => {
   try {
     const { name, email } = req.body;
 
+    // 🔥 FULL IMAGE URL
+  const imageUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
+
     const newUser = new User({
       name,
       email,
-      image: req.file.filename,
+      image: imageUrl,
     });
 
     await newUser.save();
 
     res.json({
-      message: "Saved in MongoDB",
-      data: newUser,
+      name: newUser.name,
+      email: newUser.email,
+      image: imageUrl,
     });
+
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: "Error saving data" });
   }
 });
 
-// Get all users
+// ✅ Get all users
 app.get("/users", async (req, res) => {
   const users = await User.find();
   res.json(users);
 });
 
-// Static folder
-app.use("/uploads", express.static("uploads"));
-
-// Server start
-app.listen(process.env.PORT || 5000, () =>
-  console.log(`Server running`)
-);
+// ✅ Server Start
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
