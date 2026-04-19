@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Deploy to VPS (SSH)
         uses: appleboy/ssh-action@v1.0.3
@@ -20,11 +20,14 @@ jobs:
           username: root
           key: ${{ secrets.SSH_KEY }}
           script: |
+            set -e
+
             echo "🚀 Connecting to server..."
 
             cd /root/fullstack-app
 
-            echo "📥 Pulling latest code..."
+            echo "📥 Reset + Pull latest code..."
+            git reset --hard
             git pull origin main
 
             echo "🔧 Backend setup..."
