@@ -1,0 +1,41 @@
+name: Fullstack CI/CD Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS (SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "🚀 Connecting to server..."
+
+            cd /root/fullstack-app
+
+            echo "📥 Pulling latest code..."
+            git pull origin main
+
+            echo "🔧 Backend setup..."
+            cd backend
+            npm install
+            pm2 restart backend || pm2 start index.js --name backend
+
+            echo "🎨 Frontend setup..."
+            cd ../frontend
+            npm install
+            npm run build
+            pm2 restart frontend || pm2 serve build 3000 --name frontend
+
+            echo "✅ Deployment Done!"
