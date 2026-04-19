@@ -13,7 +13,7 @@ function Root() {
 
       {/* ✅ BY DEFAULT 2 BUTTONS SHOW */}
       <button onClick={() => setActiveComponent("app")}>
-        Show App test all
+        Show App test allllll
       </button>
 
       <button 
