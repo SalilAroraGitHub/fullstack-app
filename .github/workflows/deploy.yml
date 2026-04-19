@@ -20,25 +20,31 @@ jobs:
           username: root
           key: ${{ secrets.SSH_KEY }}
           script: |
-            set -e
-
             echo "🚀 Connecting to server..."
 
-            cd /root/fullstack-app
+            cd /root/fullstack-app || exit 1
 
             echo "📥 Reset + Pull latest code..."
             git reset --hard
             git pull origin main
 
             echo "🔧 Backend setup..."
-            cd backend
-            npm install
-            pm2 restart backend || pm2 start index.js --name backend
+            cd backend || exit 1
+            npm install --legacy-peer-deps || true
+
+            pm2 delete backend || true
+            pm2 start index.js --name backend
 
             echo "🎨 Frontend setup..."
-            cd ../frontend
-            npm install
+            cd ../frontend || exit 1
+            npm install --legacy-peer-deps || true
+
+            rm -rf build
             npm run build
-            pm2 restart frontend || pm2 serve build 3000 --name frontend
+
+            pm2 delete frontend || true
+            pm2 serve build 3000 --name frontend
+
+            pm2 save
 
             echo "✅ Deployment Done!"
