@@ -20,7 +20,7 @@ function Root() {
         onClick={() => setActiveComponent("leading")} 
         style={{ marginLeft: "10px" }}
       >
-        Show Leadingss
+        Show Leading Salil
       </button>
 
       <hr style={{ margin: "20px 0" }} />
