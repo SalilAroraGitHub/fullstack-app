@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import FacebookLogin from "@greatsumini/react-facebook-login";
 
 const Leading = () => {
   const [form, setForm] = useState({
@@ -19,6 +20,50 @@ const Leading = () => {
     setImage(e.target.files[0]);
   };
 
+  // 👉 Facebook Login Success
+  const handleFacebookSuccess = async (response) => {
+    console.log("Facebook Login Success:", response);
+
+    try {
+      const API_URL =
+        process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+      const res = await fetch(`${API_URL}/facebook-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          accessToken: response.accessToken,
+          userID: response.userID,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert("✅ Facebook Login Successful");
+
+        // Auto fill form
+        setForm({
+          name: data.name || "",
+          email: data.email || "",
+        });
+      } else {
+        alert("❌ Facebook login failed");
+      }
+    } catch (error) {
+      console.log("Facebook Login Error:", error);
+      alert("❌ Server error during Facebook login");
+    }
+  };
+
+  // 👉 Facebook Login Fail
+  const handleFacebookFail = (error) => {
+    console.log("Facebook Login Failed:", error);
+    alert("❌ Facebook login failed");
+  };
+
   // 👉 Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,7 +81,6 @@ const Leading = () => {
     formData.append("image", image);
 
     try {
-      // 🔥 ENV BASED URL
       const API_URL =
         process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -58,7 +102,6 @@ const Leading = () => {
       } else {
         alert("❌ Failed: " + (data.error || "Unknown error"));
       }
-
     } catch (err) {
       console.log("❌ Fetch Error:", err);
       alert("❌ Server error");
@@ -70,6 +113,30 @@ const Leading = () => {
   return (
     <div style={{ padding: "20px", maxWidth: "400px" }}>
       <h2>Lead Form</h2>
+
+      {/* 👉 Facebook Login Button */}
+      <FacebookLogin
+        appId="1287400729626012"
+         scope="public_profile,email"
+        onSuccess={handleFacebookSuccess}
+        onFail={handleFacebookFail}
+        render={({ onClick }) => (
+          <button
+            onClick={onClick}
+            style={{
+              backgroundColor: "#1877F2",
+              color: "#fff",
+              padding: "10px",
+              border: "none",
+              cursor: "pointer",
+              width: "100%",
+              marginBottom: "20px",
+            }}
+          >
+            Login with Facebook
+          </button>
+        )}
+      />
 
       <form onSubmit={handleSubmit}>
         <div>

@@ -15,7 +15,8 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ MongoDB Connect
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected 🚀"))
   .catch((err) => console.log("❌ MongoDB Error:", err));
 
@@ -24,6 +25,7 @@ const userSchema = new mongoose.Schema({
   name: String,
   email: String,
   image: String,
+  facebookId: String,
 });
 
 const User = mongoose.model("User", userSchema);
@@ -40,8 +42,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
-// 🔁 Get Access Token (Zoho)
+// 🔁 Get Zoho Access Token
 async function getAccessToken() {
   try {
     console.log("🔄 Getting Zoho Access Token...");
@@ -61,13 +62,69 @@ async function getAccessToken() {
 
     console.log("✅ Access Token Fetched");
     return res.data.access_token;
-
   } catch (err) {
     console.log("❌ Token Error:", err.response?.data || err.message);
     throw err;
   }
 }
 
+// ✅ FACEBOOK LOGIN API
+app.post("/facebook-login", async (req, res) => {
+  try {
+    const { accessToken, userID } = req.body;
+
+    if (!accessToken || !userID) {
+      return res.status(400).json({
+        error: "Access token and user ID required",
+      });
+    }
+
+    // 🔥 Facebook Graph API
+    const fbRes = await axios.get(
+      `https://graph.facebook.com/${userID}`,
+      {
+        params: {
+          fields: "id,name,email,picture",
+          access_token: accessToken,
+        },
+      }
+    );
+
+    const fbUser = fbRes.data;
+
+    console.log("✅ Facebook User:", fbUser);
+
+    // ✅ Check existing user
+    let user = await User.findOne({ facebookId: fbUser.id });
+
+    if (!user) {
+      user = new User({
+        facebookId: fbUser.id,
+        name: fbUser.name,
+        email: fbUser.email || "",
+        image: fbUser.picture?.data?.url || "",
+      });
+
+      await user.save();
+      console.log("✅ Facebook User Saved to MongoDB");
+    }
+
+    res.json({
+      success: true,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      facebookId: user.facebookId,
+    });
+  } catch (err) {
+    console.log("❌ Facebook Login Error:");
+    console.log(err.response?.data || err.message);
+
+    res.status(500).json({
+      error: err.response?.data || err.message,
+    });
+  }
+});
 
 // 🟢 Upload API + Zoho Lead Create
 app.post("/upload", upload.single("image"), async (req, res) => {
@@ -75,28 +132,30 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     console.log("📥 Request Received");
 
     const { name, email } = req.body;
-    console.log("👉 Data:", { name, email });
 
     if (!req.file) {
-      console.log("❌ No file uploaded");
-      return res.status(400).json({ error: "No file uploaded" });
+      return res.status(400).json({
+        error: "No file uploaded",
+      });
     }
 
     const imageUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
-    console.log("🖼 Image URL:", imageUrl);
 
     // ✅ Save in MongoDB
-    const newUser = new User({ name, email, image: imageUrl });
+    const newUser = new User({
+      name,
+      email,
+      image: imageUrl,
+    });
+
     await newUser.save();
+
     console.log("✅ Saved in MongoDB");
 
-    // 🔁 Token
+    // 🔁 Zoho Token
     const accessToken = await getAccessToken();
-    console.log("🔑 Access Token:", accessToken);
 
-    // 🔥 Send to Zoho
-    console.log("📤 Sending data to Zoho...");
-
+    // 🔥 Send to Zoho CRM
     const zohoRes = await axios.post(
       "https://www.zohoapis.in/crm/v2/Leads",
       {
@@ -117,13 +176,12 @@ app.post("/upload", upload.single("image"), async (req, res) => {
       }
     );
 
-    console.log("🚀 Zoho Response:", JSON.stringify(zohoRes.data, null, 2));
+    console.log("🚀 Zoho Response:", zohoRes.data);
 
     res.json({
       success: true,
       message: "Saved to DB + Zoho 🚀",
     });
-
   } catch (err) {
     console.log("❌ FINAL ERROR:");
     console.log(err.response?.data || err.message);
@@ -134,13 +192,21 @@ app.post("/upload", upload.single("image"), async (req, res) => {
   }
 });
 
-
 // ✅ Get all users
 app.get("/users", async (req, res) => {
-  const users = await User.find();
-  res.json(users);
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 // ✅ Server Start
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on port ${PORT}`)
+);
