@@ -45,7 +45,12 @@ jobs:
             rm -rf build
             npm run build
 
-            pm2 restart frontend || pm2 serve build 3000 --name frontend
+            echo "📂 Updating domain files..."
+            sudo rm -rf /var/www/salil.fun/*
+            sudo cp -r build/* /var/www/salil.fun/
+
+            echo "🔄 Restarting Nginx..."
+            sudo systemctl restart nginx
 
             pm2 save
 
